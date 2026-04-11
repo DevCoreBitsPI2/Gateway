@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AdministrativeDataController } from './administrative-data.controller';
-import {ClientsModule} from '@nestjs/microservices'
 import { NatsModule } from 'src/transports/nats.module';
+import { AreasController } from './areas/areas.controller';
+import { PositionsController } from './positions/positions.controller';
+import { ContractsController } from './contracts/contracts.controller';
+
 @Module({
-  controllers: [AdministrativeDataController],
-  providers: [],
-  imports: [
-    NatsModule
-  ]
+  imports: [NatsModule],
+  controllers: [AreasController, PositionsController, ContractsController],
 })
 export class AdministrativeDataModule {}

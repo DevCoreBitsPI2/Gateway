@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { catchError } from 'rxjs';
+import { catchError, firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from 'src/config';
-import { CreateContractDto } from './dto/create-contract.dto';
-import { UpdateContractDto } from './dto/update-contract.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateContractDto, UpdateContractDto } from './dto';
 
 @Controller('administrative-data/contracts')
 export class ContractsController {
@@ -11,11 +11,30 @@ export class ContractsController {
     @Inject(NATS_SERVICE) private readonly client: ClientProxy,
   ) {}
 
-  @Post()
-  create(@Body() createContractDto: CreateContractDto) {
-    return this.client.send('createContract', createContractDto).pipe(
+  @Post('create-contract')
+  @UseInterceptors(FileInterceptor('file'))
+  async createContract(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createContractDto: CreateContractDto,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    const payload = {
+      ...createContractDto,
+      bufferBase64: file.buffer.toString('base64'),
+      mimetype: file.mimetype,
+      originalname: file.originalname,
+      fieldname: file.fieldname,
+      encoding: file.encoding,
+    };
+
+    return firstValueFrom(
+      this.client.send({cmd:'createContract'}, payload)
+      .pipe(
       catchError((err) => { throw new RpcException(err); }),
-    );
+    ));
   }
 
   @Get()

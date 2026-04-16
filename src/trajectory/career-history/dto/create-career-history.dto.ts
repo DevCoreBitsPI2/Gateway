@@ -9,10 +9,10 @@ export class CreateCareerHistoryDto {
     @Type(() => Date)
     event_date: Date
 
-    @IsEnum(career_type_change,
+    @IsEnum(CareerTypeChangeListDto,
         { message: `type must be one of the following values: ${CareerTypeChangeListDto}` }
     )
-    type: string
+    type: career_type_change
 
     @IsNumber()
     @IsPositive()

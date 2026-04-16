@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TrajectoryController } from './trajectory.controller';
 import { NatsModule } from 'src/transports/nats.module';
+import { CareerHistoryController } from './career-history/career-history.controller';
 
 @Module({
-  controllers: [TrajectoryController],
-  providers: [],
+  controllers: [CareerHistoryController, ],
   imports: [
-    NatsModule
+    NatsModule,
   ]
 })
 export class TrajectoryModule {}

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError, firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from 'src/config';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { PaginationDto } from 'src/common';
 import { CreateContractDto, UpdateContractDto } from './dto';
 
 @Controller('administrative-data/contracts')
@@ -13,10 +14,7 @@ export class ContractsController {
 
   @Post('create-contract')
   @UseInterceptors(FileInterceptor('file'))
-  async createContract(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() createContractDto: CreateContractDto,
-  ) {
+  async createContract(@UploadedFile() file: Express.Multer.File, @Body() createContractDto: CreateContractDto) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -31,39 +29,36 @@ export class ContractsController {
     };
 
     return firstValueFrom(
-      this.client.send({cmd:'createContract'}, payload)
-      .pipe(
-      catchError((err) => { throw new RpcException(err); }),
-    ));
+      this.client.send({ cmd: 'createContract' }, payload).pipe(
+        catchError((err) => { throw new RpcException(err); }),
+      ),
+    );
   }
 
-  @Get()
-  findAll() {
-    return this.client.send('findAllContracts', {}).pipe(
+  @Get('find-all-contracts')
+  findAll(@Query() paginationDto: PaginationDto) {
+    return this.client.send({ cmd: 'findAllContracts' }, paginationDto).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }
 
-  @Get(':id')
+  @Get('find-contract/:id')
   findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.client.send('findOneContract', id).pipe(
+    return this.client.send({ cmd: 'findOneContract' }, id).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }
 
-  @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateContractDto: UpdateContractDto,
-  ) {
-    return this.client.send('updateContract', { ...updateContractDto, id }).pipe(
+  @Patch('update-contract/:id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() updateContractDto: UpdateContractDto,) {
+    return this.client.send({ cmd: 'updateContract' }, { ...updateContractDto, id }).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }
 
-  @Delete(':id')
+  @Delete('delete-contract/:id')
   remove(@Param('id', ParseIntPipe) id: number) {
-    return this.client.send('removeContract', id).pipe(
+    return this.client.send({ cmd: 'removeContract' }, id).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }

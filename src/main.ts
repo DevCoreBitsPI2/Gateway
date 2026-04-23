@@ -3,12 +3,27 @@ import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { envs } from './config';
+import { RpcCustomExceptionFilter } from './common/exceptions/rpc-custom-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Gateway')
   const app = await NestFactory.create(AppModule);
   
-  //TODO: cors
+  app.enableCors({
+    origin: [
+      'https://www.devcorebits.com',
+      'https://devcorebits.com',
+      'http://localhost:5173',
+      'http://localhost:3005',
+      'http://localhost:3006',
+      'https://admin.devcorebits.com'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
+  app.useGlobalFilters(new RpcCustomExceptionFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -21,6 +36,7 @@ async function bootstrap() {
     transport: Transport.NATS,
     options: {
       servers: envs.natsServers,
+      maxPayload: 20971520,
     },
   });
   

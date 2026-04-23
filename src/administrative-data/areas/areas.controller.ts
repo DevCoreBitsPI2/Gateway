@@ -43,10 +43,7 @@ export class AreasController {
   }
 
   @Patch('update-area/:id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateAreaDto: UpdateAreaDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number,@Body() updateAreaDto: UpdateAreaDto,) {
     return this.client.send({cmd:'updateArea'}, { ...updateAreaDto, id })
     .pipe(
       catchError((err) => { 

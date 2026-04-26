@@ -4,7 +4,7 @@ import { catchError, firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from 'src/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PaginationDto } from 'src/common';
-import { CreateContractDto, UpdateContractDto } from './dto';
+import { CreateContractDto, RenewContractDto, UpdateContractDto } from './dto';
 
 @Controller('administrative-data/contracts')
 export class ContractsController {
@@ -59,6 +59,20 @@ export class ContractsController {
   @Delete('delete-contract/:id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'removeContract' }, id).pipe(
+      catchError((err) => { throw new RpcException(err); }),
+    );
+  }
+
+  @Patch('renew-contract/:id')
+  renew(@Param('id', ParseIntPipe) id: number, @Body() renewContractDto: RenewContractDto) {
+    return this.client.send({ cmd: 'renewContract' }, { id, ...renewContractDto }).pipe(
+      catchError((err) => { throw new RpcException(err); }),
+    );
+  }
+
+  @Get('find-contracts-by-employee/:id')
+  findByEmployee(@Param('id', ParseIntPipe) id: number) {
+    return this.client.send({ cmd: 'findContractsByEmployee' }, id).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }

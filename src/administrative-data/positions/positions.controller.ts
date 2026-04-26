@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query, Put } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
 import { NATS_SERVICE } from 'src/config';
@@ -59,6 +59,16 @@ export class PositionsController {
   @Get('positions-tree')
   getPositionsTree(){
     return this.client.send({ cmd: 'positionsTree' },{})
+    .pipe(
+      catchError((err) => {
+        throw new RpcException(err);
+      })
+    )
+  }
+
+  @Put('remove-father/:id')
+  removeHierarchy(@Param('id', ParseIntPipe) id: number){
+    return this.client.send({ cmd: 'removePositionHierarchy' }, id)
     .pipe(
       catchError((err) => {
         throw new RpcException(err);

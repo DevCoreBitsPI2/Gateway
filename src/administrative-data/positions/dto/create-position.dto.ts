@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsDate, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { position_status, TypePositionListDto } from '../enum/status_position.enum';
 
 export class CreatePositionDto {
   @IsString()
@@ -7,7 +7,8 @@ export class CreatePositionDto {
 
   @IsNumber()
   @IsPositive()
-  base_salary: number;
+  @IsOptional()
+  base_salary?: number;
 
   @IsString()
   description: string;
@@ -25,8 +26,13 @@ export class CreatePositionDto {
   @IsOptional()
   parent_position_id?: number;
 
-  @Type(() => Date)
-  @IsDate()
+  @IsEnum(TypePositionListDto, {
+    message: `valid types are: ${TypePositionListDto}`
+  })
   @IsOptional()
-  created_at?: Date;
+  status?: position_status
+
+  @IsNumber()
+  @IsPositive()
+  vacancies: number;
 }

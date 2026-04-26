@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { envs } from './config';
 import { RpcCustomExceptionFilter } from './common/exceptions/rpc-custom-exception.filter';
@@ -24,6 +24,13 @@ async function bootstrap() {
   });
 
   app.useGlobalFilters(new RpcCustomExceptionFilter());
+
+  app.setGlobalPrefix('api', {
+    exclude:[{
+      path: '',
+      method: RequestMethod.GET
+    }]
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -3,8 +3,8 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CreatePerformanceEvaluationDto } from './dto/create-performance-evaluation.dto';
 import { UpdatePerformanceEvaluationDto } from './dto/update-performance-evaluation.dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { NATS_SERVICE } from 'src/config';
-import { PaginationDto } from 'src/common';
+import { NATS_SERVICE } from '@/src/config';
+import { PaginationDto } from '@/src/common';
 import { catchError } from 'rxjs';
 
 @Controller()

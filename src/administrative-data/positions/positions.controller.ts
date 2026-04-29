@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query, Put } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
-import { NATS_SERVICE } from 'src/config';
-import { PaginationDto } from 'src/common';
+import { NATS_SERVICE } from '@/src/config';
+import { PaginationDto } from '@/src/common';
 import { CreatePositionDto, UpdatePositionDto } from './dto';
 
 @Controller('administrative-data/positions')

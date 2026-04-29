@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query} from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
-import { NATS_SERVICE } from 'src/config';
+import { NATS_SERVICE } from '@/src/config';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CreateCareerHistoryDto } from './dto/create-career-history.dto';
 import { UpdateCareerHistoryDto } from './dto/update-career-history.dto';
-import { PaginationDto } from 'src/common';
+import { PaginationDto } from '@/src/common';
 
 @Controller()
 export class CareerHistoryController {

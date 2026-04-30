@@ -1,9 +1,9 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError, firstValueFrom } from 'rxjs';
-import { NATS_SERVICE } from '@/src/config';
+import { NATS_SERVICE } from 'src/config';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { PaginationDto } from '@/src/common';
+import { PaginationDto } from 'src/common';
 import { CreateContractDto, RenewContractDto, UpdateContractDto } from './dto';
 
 @Controller('administrative-data/contracts')

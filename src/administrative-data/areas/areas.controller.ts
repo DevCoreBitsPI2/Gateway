@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
-import { NATS_SERVICE } from '@/src/config';
+import { NATS_SERVICE } from 'src/config';
 import { CreateAreaDto } from './dto/create-area.dto';
 import { UpdateAreaDto } from './dto/update-area.dto';
-import { PaginationDto } from '@/src/common';
+import { PaginationDto } from 'src/common';
 
 @Controller('administrative-data/areas')
 export class AreasController {

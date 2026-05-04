@@ -4,6 +4,7 @@ import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { envs } from './config';
 import { RpcCustomExceptionFilter } from './common/exceptions/rpc-custom-exception.filter';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const logger = new Logger('Gateway');
@@ -50,6 +51,16 @@ async function bootstrap() {
       maxPayload: 20971520,
     },
   });
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Gateway API')
+    .setDescription('Documentación de la API del Gateway')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document);
 
   await app.startAllMicroservices();
   await app.listen(envs.port || 3000);

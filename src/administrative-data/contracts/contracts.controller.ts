@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError, firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from '@/src/config';
@@ -9,6 +10,8 @@ import { AuthGuard, PositionGuard } from '@/src/guards';
 import { Positions } from '@/src/decorators';
 import { createContractEnum } from '@/src/guards/enum/position.enum';
 
+@ApiTags('Contracts')
+@ApiBearerAuth()
 @Controller('administrative-data/contracts')
 export class ContractsController {
   constructor(
@@ -19,6 +22,28 @@ export class ContractsController {
   @Positions(createContractEnum['Auxiliar de Talento Humano'], createContractEnum['Jefe de Talento Humano'])
   @Post('create-contract')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Crear un nuevo contrato (requiere archivo PDF)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Datos del contrato junto con el archivo PDF',
+    schema: {
+      type: 'object',
+      required: ['file', 'conditions', 'contractType', 'startDate', 'endDate', 'idEmployee', 'idManager'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Archivo del contrato (PDF)' },
+        conditions: { type: 'string', example: 'Contrato a término fijo por 1 año' },
+        contractType: { type: 'string', example: 'fixed_term_contract' },
+        contractStatus: { type: 'string', example: 'valid' },
+        startDate: { type: 'string', format: 'date', example: '2025-01-01' },
+        endDate: { type: 'string', format: 'date', example: '2026-01-01' },
+        idEmployee: { type: 'number', example: 10 },
+        idManager: { type: 'number', example: 5 },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Contrato creado exitosamente.' })
+  @ApiResponse({ status: 400, description: 'Archivo requerido o datos inválidos.' })
+  @ApiResponse({ status: 403, description: 'Sin permisos para crear contratos.' })
   async createContract(@UploadedFile() file: Express.Multer.File, @Body() createContractDto: CreateContractDto) {
     if (!file) {
       throw new BadRequestException('File is required');
@@ -41,6 +66,8 @@ export class ContractsController {
   }
 
   @Get('find-all-contracts')
+  @ApiOperation({ summary: 'Obtener todos los contratos (paginado)' })
+  @ApiResponse({ status: 200, description: 'Lista de contratos.' })
   findAll(@Query() paginationDto: PaginationDto) {
     return this.client.send({ cmd: 'findAllContracts' }, paginationDto).pipe(
       catchError((err) => { throw new RpcException(err); }),
@@ -48,6 +75,10 @@ export class ContractsController {
   }
 
   @Get('find-contract/:id')
+  @ApiOperation({ summary: 'Obtener un contrato por ID' })
+  @ApiParam({ name: 'id', description: 'ID del contrato', example: 1 })
+  @ApiResponse({ status: 200, description: 'Contrato encontrado.' })
+  @ApiResponse({ status: 404, description: 'Contrato no encontrado.' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'findOneContract' }, id).pipe(
       catchError((err) => { throw new RpcException(err); }),
@@ -55,13 +86,22 @@ export class ContractsController {
   }
 
   @Patch('update-contract/:id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateContractDto: UpdateContractDto,) {
+  @ApiOperation({ summary: 'Actualizar un contrato por ID' })
+  @ApiParam({ name: 'id', description: 'ID del contrato', example: 1 })
+  @ApiBody({ type: UpdateContractDto })
+  @ApiResponse({ status: 200, description: 'Contrato actualizado exitosamente.' })
+  @ApiResponse({ status: 404, description: 'Contrato no encontrado.' })
+  update(@Param('id', ParseIntPipe) id: number, @Body() updateContractDto: UpdateContractDto) {
     return this.client.send({ cmd: 'updateContract' }, { ...updateContractDto, id }).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }
 
   @Delete('delete-contract/:id')
+  @ApiOperation({ summary: 'Eliminar un contrato por ID' })
+  @ApiParam({ name: 'id', description: 'ID del contrato', example: 1 })
+  @ApiResponse({ status: 200, description: 'Contrato eliminado exitosamente.' })
+  @ApiResponse({ status: 404, description: 'Contrato no encontrado.' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'removeContract' }, id).pipe(
       catchError((err) => { throw new RpcException(err); }),
@@ -69,6 +109,11 @@ export class ContractsController {
   }
 
   @Patch('renew-contract/:id')
+  @ApiOperation({ summary: 'Renovar un contrato por ID' })
+  @ApiParam({ name: 'id', description: 'ID del contrato a renovar', example: 1 })
+  @ApiBody({ type: RenewContractDto })
+  @ApiResponse({ status: 200, description: 'Contrato renovado exitosamente.' })
+  @ApiResponse({ status: 404, description: 'Contrato no encontrado.' })
   renew(@Param('id', ParseIntPipe) id: number, @Body() renewContractDto: RenewContractDto) {
     return this.client.send({ cmd: 'renewContract' }, { id, ...renewContractDto }).pipe(
       catchError((err) => { throw new RpcException(err); }),
@@ -76,6 +121,10 @@ export class ContractsController {
   }
 
   @Get('find-contracts-by-employee/:id')
+  @ApiOperation({ summary: 'Obtener todos los contratos de un empleado' })
+  @ApiParam({ name: 'id', description: 'ID del empleado', example: 10 })
+  @ApiResponse({ status: 200, description: 'Lista de contratos del empleado.' })
+  @ApiResponse({ status: 404, description: 'Empleado no encontrado.' })
   findByEmployee(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'findContractsByEmployee' }, id).pipe(
       catchError((err) => { throw new RpcException(err); }),

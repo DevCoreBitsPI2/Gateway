@@ -4,8 +4,7 @@ import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError, firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from '@/src/config';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { PaginationDto } from '@/src/common';
-import { CreateContractDto, RenewContractDto, UpdateContractDto } from './dto';
+import { ContractPaginationDto, CreateContractDto, RenewContractDto, UpdateContractDto } from './dto';
 import { AuthGuard, PositionGuard } from '@/src/guards';
 import { Positions } from '@/src/decorators';
 import { createContractEnum } from '@/src/guards/enum/position.enum';
@@ -68,7 +67,7 @@ export class ContractsController {
   @Get('find-all-contracts')
   @ApiOperation({ summary: 'Obtener todos los contratos (paginado)' })
   @ApiResponse({ status: 200, description: 'Lista de contratos.' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: ContractPaginationDto) {
     return this.client.send({ cmd: 'findAllContracts' }, paginationDto).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
@@ -81,6 +80,15 @@ export class ContractsController {
   @ApiResponse({ status: 404, description: 'Contrato no encontrado.' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'findOneContract' }, id).pipe(
+      catchError((err) => { throw new RpcException(err); }),
+    );
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Obtener estadísticas de contratos' })
+  @ApiResponse({ status: 200, description: 'Estadísticas de contratos.' })
+  getStats() {
+    return this.client.send({ cmd: 'getContractStats' }, {}).pipe(
       catchError((err) => { throw new RpcException(err); }),
     );
   }

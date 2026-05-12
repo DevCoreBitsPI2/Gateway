@@ -3,9 +3,7 @@ import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiQuery, ApiBea
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
 import { NATS_SERVICE } from '@/src/config';
-import { CreateAreaDto } from './dto/create-area.dto';
-import { UpdateAreaDto } from './dto/update-area.dto';
-import { PaginationDto } from '@/src/common';
+import { AreaPaginationDto, CreateAreaDto, UpdateAreaDto } from './dto';
 
 @ApiTags('Areas')
 @ApiBearerAuth()
@@ -28,7 +26,7 @@ export class AreasController {
   @Get('find-all-areas')
   @ApiOperation({ summary: 'Obtener todas las áreas (paginado)' })
   @ApiResponse({ status: 200, description: 'Lista de áreas.' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: AreaPaginationDto) {
     return this.client.send({ cmd: 'findAllAreas' }, paginationDto)
       .pipe(catchError((err) => { throw new RpcException(err); }));
   }

@@ -7,7 +7,7 @@ import { PaginationDto } from '@/src/common';
 import { CreatePerformanceEvaluationDto } from './dto/create-performance-evaluation.dto';
 import { UpdatePerformanceEvaluationDto } from './dto/update-performance-evaluation.dto';
 import { GenerateConsolidatedPerformanceReportDto } from './dto/generate-consolidated-performance-report.dto';
-import { any } from 'joi';
+import { GenerateAreaPerformanceReportDto } from './dto/generate-area-performance-report.dto';
 
 
 @ApiTags('Performance Evaluation')
@@ -64,6 +64,30 @@ export class PerformanceEvaluationController {
       }
       return res.json(result);
     } catch (err:any) {
+      throw new RpcException(err);
+    }
+  }
+
+  @Post('generate-performance-evaluation-report-by-area')
+  @ApiOperation({ summary: 'Generar reporte consolidado de desempeño por área' })
+  @ApiBody({ type: GenerateAreaPerformanceReportDto })
+  @ApiResponse({ status: 201, description: 'Reporte por área generado exitosamente.' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o área sin información.' })
+  async generateAreaReport(
+    @Body() payload: GenerateAreaPerformanceReportDto,
+    @Res() res: any,
+  ) {
+    try {
+      const result = await firstValueFrom(
+        this.client.send({ cmd: 'generateAreaConsolidatedReport' }, payload)
+      );
+      if (result && result.csv) {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="area-${payload.areaId}-performance-report.csv"`);
+        return res.send(result.csv);
+      }
+      return res.json(result);
+    } catch (err: any) {
       throw new RpcException(err);
     }
   }

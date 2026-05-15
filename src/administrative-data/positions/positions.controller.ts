@@ -3,8 +3,7 @@ import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } 
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
 import { NATS_SERVICE } from '@/src/config';
-import { PaginationDto } from '@/src/common';
-import { CreatePositionDto, UpdatePositionDto } from './dto';
+import { CreatePositionDto, PositionPaginationDto, UpdatePositionDto } from './dto';
 
 @ApiTags('Positions')
 @ApiBearerAuth()
@@ -27,7 +26,7 @@ export class PositionsController {
   @Get('find-all-positions')
   @ApiOperation({ summary: 'Obtener todos los cargos (paginado)' })
   @ApiResponse({ status: 200, description: 'Lista de cargos.' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: PositionPaginationDto) {
     return this.client.send({ cmd: 'findAllPositions' }, paginationDto)
       .pipe(catchError((err) => { throw new RpcException(err); }));
   }

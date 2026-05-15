@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { catchError } from 'rxjs';
+import { catchError, firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from '@/src/config';
 import { PaginationDto } from '@/src/common';
 import { CreatePerformanceEvaluationDto } from './dto/create-performance-evaluation.dto';
 import { UpdatePerformanceEvaluationDto } from './dto/update-performance-evaluation.dto';
+import { GenerateConsolidatedPerformanceReportDto } from './dto/generate-consolidated-performance-report.dto';
+import { GenerateAreaPerformanceReportDto } from './dto/generate-area-performance-report.dto';
+
 
 @ApiTags('Performance Evaluation')
 @ApiBearerAuth()
@@ -41,6 +44,52 @@ export class PerformanceEvaluationController {
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'findOnePerformanceEvaluation' }, id)
       .pipe(catchError((err) => { throw new RpcException(err); }));
+  }
+
+  @Post('generate-performance-evaluation-report')
+  @ApiOperation({ summary: 'Generar reporte consolidado de desempeño' })
+  @ApiBody({ type: GenerateConsolidatedPerformanceReportDto })
+  @ApiResponse({ status: 201, description: 'Reporte consolidado generado exitosamente.' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o sin información en el rango seleccionado.' })
+  async generateConsolidatedReport(
+    @Body() payload: GenerateConsolidatedPerformanceReportDto,
+    @Res() res: any,
+  ) {
+    try {
+      const result = await firstValueFrom(this.client.send({ cmd: 'generateConsolidatedReport' }, payload));
+      if (result && result.csv) {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="performance-report.csv"');
+        return res.send(result.csv);
+      }
+      return res.json(result);
+    } catch (err:any) {
+      throw new RpcException(err);
+    }
+  }
+
+  @Post('generate-performance-evaluation-report-by-area')
+  @ApiOperation({ summary: 'Generar reporte consolidado de desempeño por área' })
+  @ApiBody({ type: GenerateAreaPerformanceReportDto })
+  @ApiResponse({ status: 201, description: 'Reporte por área generado exitosamente.' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o área sin información.' })
+  async generateAreaReport(
+    @Body() payload: GenerateAreaPerformanceReportDto,
+    @Res() res: any,
+  ) {
+    try {
+      const result = await firstValueFrom(
+        this.client.send({ cmd: 'generateAreaConsolidatedReport' }, payload)
+      );
+      if (result && result.csv) {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="area-${payload.areaId}-performance-report.csv"`);
+        return res.send(result.csv);
+      }
+      return res.json(result);
+    } catch (err: any) {
+      throw new RpcException(err);
+    }
   }
 
   @Patch('update-performance-evaluation/:id')

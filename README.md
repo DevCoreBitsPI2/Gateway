@@ -133,8 +133,42 @@ Todos los endpoints tienen el prefijo `/api`.
 | `POST`   | `/`     | Crear evaluación                          | `createPerformanceEvaluation`      |
 | `GET`    | `/`     | Listar evaluaciones (paginado)            | `findAllPerformanceEvaluation`     |
 | `GET`    | `/:id`  | Obtener evaluación por ID                 | `findOnePerformanceEvaluation`     |
+| `POST`   | `/generate-performance-evaluation-report` | Generar reporte consolidado | `generateConsolidatedReport` |
 | `PATCH`  | `/:id`  | Actualizar evaluación                     | `updatePerformanceEvaluation`      |
 | `DELETE` | `/:id`  | Eliminar evaluación                       | `removePerformanceEvaluation`      |
+
+#### Payload del reporte consolidado
+
+El endpoint acepta un body JSON con este formato:
+
+```json
+{
+        "employeeIds": [1, 2, 3],
+        "startDate": "2025-01-01",
+        "endDate": "2025-12-31",
+        "export": "json"
+}
+```
+
+Campos:
+- `employeeIds`: opcional. Si se omite, el reporte usa todos los empleados con evaluaciones registradas.
+- `startDate` y `endDate`: opcionales. Filtran el rango de fechas de las evaluaciones.
+- `export`: opcional. Valores permitidos: `json` o `csv`.
+
+#### Prueba rápida
+
+```bash
+curl -X POST http://localhost:3000/api/generate-performance-evaluation-report \
+        -H "Content-Type: application/json" \
+        -d '{
+                "employeeIds": [1, 2],
+                "startDate": "2025-01-01",
+                "endDate": "2025-12-31",
+                "export": "json"
+        }'
+```
+
+Para exportación CSV, cambia `"export": "csv"`. La respuesta incluirá la cadena CSV dentro del campo `csv`.
 
 ### Paginación
 

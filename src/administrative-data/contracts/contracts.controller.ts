@@ -7,7 +7,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ContractPaginationDto, CreateContractDto, RenewContractDto, UpdateContractDto } from './dto';
 import { AuthGuard, PositionGuard } from '@/src/guards';
 import { Positions } from '@/src/decorators';
-import { createContractEnum } from '@/src/guards/enum/position.enum';
+import { PositionId } from '@/src/guards/enum/position-id.enum';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
@@ -18,7 +18,7 @@ export class ContractsController {
   ) {}
 
   @UseGuards(AuthGuard, PositionGuard)
-  @Positions(createContractEnum['Auxiliar de Talento Humano'], createContractEnum['Jefe de Talento Humano'])
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @Post('create-contract')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Crear un nuevo contrato (requiere archivo PDF)' })

@@ -23,13 +23,22 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const { position, isAdmin, token: newToken } = await firstValueFrom(
+      const { position, isAdmin, token: newToken, supabaseUserId, employeeId } = await firstValueFrom(
         this.client.send({ cmd: 'verifyToken' }, token),
       );
 
       request['position'] = position;
       request['isAdmin'] = isAdmin;
       request['token'] = newToken;
+      request['supabaseUserId'] = supabaseUserId;
+      request['employeeId'] = employeeId;
+      request['authUser'] = {
+        position,
+        isAdmin,
+        token: newToken,
+        supabaseUserId,
+        employeeId,
+      };
     } catch {
       throw new UnauthorizedException();
     }

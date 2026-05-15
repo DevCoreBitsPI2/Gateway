@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Inject, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { NATS_SERVICE } from '@/src/config';
 import { ClientProxy } from '@nestjs/microservices';
-import { InviteUserDto, UpdateProfileDto, UpdateEmployeeDto } from './dto';
+import { InviteUserDto, ScanEmployeeQrDto, UpdateProfileDto, UpdateEmployeeDto } from './dto';
+import { AuthGuard } from '@/src/guards/auth.guard';
+import { AuthUser } from '@/src/decorators';
 
 @ApiTags('Employees')
 @ApiBearerAuth()
@@ -24,6 +26,51 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Lista de empleados.' })
   findAll() {
     return this.client.send({ cmd: 'findAllUsers' }, {});
+  }
+
+  @Post('/:id/qr')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Generar código QR temporal de un empleado' })
+  @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
+  @ApiResponse({ status: 201, description: 'QR temporal generado.' })
+  @ApiResponse({ status: 401, description: 'No autenticado.' })
+  @ApiResponse({ status: 403, description: 'Sin permisos para generar este QR.' })
+  generateEmployeeQr(
+    @Param('id') id: string,
+    @AuthUser('employeeId') employeeId: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    return this.client.send(
+      { cmd: 'generateEmployeeQr' },
+      {
+        id_employee: Number(id),
+        scannerEmployeeId: employeeId,
+        scannerIsAdmin: isAdmin === true,
+      },
+    );
+  }
+
+  @Post('/qr/scan')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Escanear QR temporal de un empleado' })
+  @ApiBody({ type: ScanEmployeeQrDto })
+  @ApiResponse({ status: 200, description: 'Datos visibles del empleado según permisos.' })
+  @ApiResponse({ status: 401, description: 'No autenticado o QR expirado.' })
+  scanEmployeeQr(
+    @Body() scanEmployeeQrDto: ScanEmployeeQrDto,
+    @AuthUser('employeeId') employeeId: number,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    return this.client.send(
+      { cmd: 'scanEmployeeQr' },
+      {
+        qrToken: scanEmployeeQrDto.qrToken,
+        scannerEmployeeId: employeeId,
+        scannerPosition: position,
+        scannerIsAdmin: isAdmin === true,
+      },
+    );
   }
 
   @Get('/:id')

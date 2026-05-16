@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Inject, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { NATS_SERVICE } from '@/src/config';
 import { ClientProxy } from '@nestjs/microservices';
+import { firstValueFrom } from 'rxjs';
 import { InviteUserDto, ScanEmployeeQrDto, UpdateProfileDto, UpdateEmployeeDto } from './dto';
-import { AuthGuard } from '@/src/guards/auth.guard';
-import { AuthUser } from '@/src/decorators';
+import { AuthGuard, OptionalAuthGuard, PositionGuard } from '@/src/guards';
+import { AuthUser, Positions } from '@/src/decorators';
+import { PositionId } from '@/src/guards/enum/position-id.enum';
 
 @ApiTags('Employees')
 @ApiBearerAuth()
@@ -13,6 +15,8 @@ export class UsersController {
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   @Post('/inviteUser')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Invitar a un nuevo empleado' })
   @ApiBody({ type: InviteUserDto })
   @ApiResponse({ status: 201, description: 'Invitación enviada exitosamente.' })
@@ -22,6 +26,8 @@ export class UsersController {
   }
 
   @Get('/findAll')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Obtener todos los empleados' })
   @ApiResponse({ status: 200, description: 'Lista de empleados.' })
   findAll() {
@@ -51,7 +57,7 @@ export class UsersController {
   }
 
   @Post('/qr/scan')
-  @UseGuards(AuthGuard)
+  @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: 'Escanear QR temporal de un empleado' })
   @ApiBody({ type: ScanEmployeeQrDto })
   @ApiResponse({ status: 200, description: 'Datos visibles del empleado según permisos.' })
@@ -74,41 +80,78 @@ export class UsersController {
   }
 
   @Get('/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Obtener un empleado por ID' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiResponse({ status: 200, description: 'Empleado encontrado.' })
   @ApiResponse({ status: 404, description: 'Empleado no encontrado.' })
-  findOne(@Param('id') id: string) {
+  async findOne(
+    @Param('id') id: string,
+    @AuthUser('employeeId') employeeId: number,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    await this.ensureEmployeeAccess(Number(id), employeeId, position, isAdmin);
     return this.client.send({ cmd: 'findUserById' }, id);
   }
 
   @Get('/getMyProfile/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Obtener el perfil propio de un empleado' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiResponse({ status: 200, description: 'Perfil del empleado.' })
-  getMyProfile(@Param('id') id: string) {
+  getMyProfile(
+    @Param('id') id: string,
+    @AuthUser('supabaseUserId') supabaseUserId: string,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    if (!isAdmin && !this.isHumanTalent(position) && id !== supabaseUserId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
     return this.client.send({ cmd: 'getMyProfile' }, id);
   }
 
   @Get('/getSubordinates/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Obtener los subordinados de un gerente' })
   @ApiParam({ name: 'id', description: 'ID del gerente', example: '5' })
   @ApiResponse({ status: 200, description: 'Lista de subordinados del gerente.' })
-  getSubordinates(@Param('id') id: string) {
+  getSubordinates(
+    @Param('id') id: string,
+    @AuthUser('employeeId') employeeId: number,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    if (!isAdmin && !this.isHumanTalent(position) && Number(id) !== employeeId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
     return this.client.send({ cmd: 'getSubordinates' }, id);
   }
 
   @Patch('/updateUser/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Actualizar el perfil propio de un empleado' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiBody({ type: UpdateProfileDto })
   @ApiResponse({ status: 200, description: 'Perfil actualizado exitosamente.' })
   @ApiResponse({ status: 400, description: 'Datos inválidos.' })
-  updateUser(@Param('id') id: string, @Body() updateProfileDto: UpdateProfileDto) {
+  updateUser(
+    @Param('id') id: string,
+    @Body() updateProfileDto: UpdateProfileDto,
+    @AuthUser('employeeId') employeeId: number,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    if (!isAdmin && !this.isHumanTalent(position) && Number(id) !== employeeId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
     return this.client.send({ cmd: 'updateUser' }, { id, ...updateProfileDto });
   }
 
   @Patch('/updateEmployee/:id')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Actualizar cargo, jefe o estado de un empleado (uso administrativo)' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiBody({ type: UpdateEmployeeDto })
@@ -119,18 +162,57 @@ export class UsersController {
   }
 
   @Get('/firstTimeSetup/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Verificar si el empleado necesita configuración inicial' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiResponse({ status: 200, description: 'Estado de configuración inicial.' })
-  firstTimeSetup(@Param('id') id: string) {
+  firstTimeSetup(
+    @Param('id') id: string,
+    @AuthUser('supabaseUserId') supabaseUserId: string,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    if (!isAdmin && !this.isHumanTalent(position) && id !== supabaseUserId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
     return this.client.send({ cmd: 'firstTimeSetup' }, id);
   }
 
   @Patch('/completeFirstLogin/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Marcar el primer login como completado' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiResponse({ status: 200, description: 'Primer login marcado como completado.' })
-  completeFirstLogin(@Param('id') id: string) {
+  completeFirstLogin(
+    @Param('id') id: string,
+    @AuthUser('supabaseUserId') supabaseUserId: string,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    if (!isAdmin && !this.isHumanTalent(position) && id !== supabaseUserId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
     return this.client.send({ cmd: 'completeFirstLogin' }, id);
+  }
+
+  private async ensureEmployeeAccess(
+    targetEmployeeId: number,
+    requesterEmployeeId: number,
+    requesterPosition: number,
+    requesterIsAdmin: boolean,
+  ) {
+    if (requesterIsAdmin || this.isHumanTalent(requesterPosition) || targetEmployeeId === requesterEmployeeId) {
+      return;
+    }
+
+    const employee = await firstValueFrom(this.client.send({ cmd: 'findUserById' }, targetEmployeeId));
+
+    if (employee.id_manager !== requesterEmployeeId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
+  }
+
+  private isHumanTalent(position: number): boolean {
+    return [PositionId.HumanTalentAssistant, PositionId.HumanTalentLead].includes(position);
   }
 }

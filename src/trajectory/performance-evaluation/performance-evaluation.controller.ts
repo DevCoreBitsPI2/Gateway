@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, ParseIntPipe, Query, Res, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError, firstValueFrom } from 'rxjs';
@@ -8,6 +8,9 @@ import { CreatePerformanceEvaluationDto } from './dto/create-performance-evaluat
 import { UpdatePerformanceEvaluationDto } from './dto/update-performance-evaluation.dto';
 import { GenerateConsolidatedPerformanceReportDto } from './dto/generate-consolidated-performance-report.dto';
 import { GenerateAreaPerformanceReportDto } from './dto/generate-area-performance-report.dto';
+import { AuthGuard, PositionGuard } from '@/src/guards';
+import { AuthUser, Positions } from '@/src/decorators';
+import { PositionId } from '@/src/guards/enum/position-id.enum';
 
 
 @ApiTags('Performance Evaluation')
@@ -19,6 +22,7 @@ export class PerformanceEvaluationController {
   ) {}
 
   @Post('create-performance-evaluation')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Crear una nueva evaluación de desempeño' })
   @ApiBody({ type: CreatePerformanceEvaluationDto })
   @ApiResponse({ status: 201, description: 'Evaluación creada exitosamente.' })
@@ -29,6 +33,8 @@ export class PerformanceEvaluationController {
   }
 
   @Get('find-all-performance-evaluation')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Obtener todas las evaluaciones de desempeño (paginado)' })
   @ApiResponse({ status: 200, description: 'Lista de evaluaciones.' })
   findAll(@Query() paginationDto: PaginationDto) {
@@ -37,6 +43,7 @@ export class PerformanceEvaluationController {
   }
 
   @Get('find-performance-evaluation/:id')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Obtener una evaluación de desempeño por ID' })
   @ApiParam({ name: 'id', description: 'ID de la evaluación', example: 1 })
   @ApiResponse({ status: 200, description: 'Evaluación encontrada.' })
@@ -46,7 +53,26 @@ export class PerformanceEvaluationController {
       .pipe(catchError((err) => { throw new RpcException(err); }));
   }
 
+  @Get('find-performance-evaluations-by-employee/:id')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Obtener evaluaciones históricas de un empleado' })
+  @ApiParam({ name: 'id', description: 'ID del empleado', example: 10 })
+  @ApiResponse({ status: 200, description: 'Evaluaciones históricas del empleado.' })
+  async findByEmployee(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() paginationDto: PaginationDto,
+    @AuthUser('employeeId') employeeId: number,
+    @AuthUser('position') position: number,
+    @AuthUser('isAdmin') isAdmin: boolean,
+  ) {
+    await this.ensureEmployeeReadAccess(id, employeeId, position, isAdmin);
+    return this.client.send({ cmd: 'findPerformanceEvaluationsByEmployee' }, { id_employee: id, paginationDto })
+      .pipe(catchError((err) => { throw new RpcException(err); }));
+  }
+
   @Post('generate-performance-evaluation-report')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Generar reporte consolidado de desempeño' })
   @ApiBody({ type: GenerateConsolidatedPerformanceReportDto })
   @ApiResponse({ status: 201, description: 'Reporte consolidado generado exitosamente.' })
@@ -69,6 +95,8 @@ export class PerformanceEvaluationController {
   }
 
   @Post('generate-performance-evaluation-report-by-area')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Generar reporte consolidado de desempeño por área' })
   @ApiBody({ type: GenerateAreaPerformanceReportDto })
   @ApiResponse({ status: 201, description: 'Reporte por área generado exitosamente.' })
@@ -93,6 +121,8 @@ export class PerformanceEvaluationController {
   }
 
   @Patch('update-performance-evaluation/:id')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Actualizar una evaluación de desempeño por ID' })
   @ApiParam({ name: 'id', description: 'ID de la evaluación', example: 1 })
   @ApiBody({ type: UpdatePerformanceEvaluationDto })
@@ -107,6 +137,8 @@ export class PerformanceEvaluationController {
   }
 
   @Delete('delete-performance-evaluation/:id')
+  @UseGuards(AuthGuard, PositionGuard)
+  @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
   @ApiOperation({ summary: 'Eliminar una evaluación de desempeño por ID' })
   @ApiParam({ name: 'id', description: 'ID de la evaluación', example: 1 })
   @ApiResponse({ status: 200, description: 'Evaluación eliminada exitosamente.' })
@@ -114,5 +146,26 @@ export class PerformanceEvaluationController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'removePerformanceEvaluation' }, id)
       .pipe(catchError((err) => { throw new RpcException(err); }));
+  }
+
+  private async ensureEmployeeReadAccess(
+    targetEmployeeId: number,
+    requesterEmployeeId: number,
+    requesterPosition: number,
+    requesterIsAdmin: boolean,
+  ) {
+    if (requesterIsAdmin || this.isHumanTalent(requesterPosition) || targetEmployeeId === requesterEmployeeId) {
+      return;
+    }
+
+    const employee = await firstValueFrom(this.client.send({ cmd: 'findUserById' }, targetEmployeeId));
+
+    if (employee.id_manager !== requesterEmployeeId) {
+      throw new ForbiddenException('Insufficient employee access');
+    }
+  }
+
+  private isHumanTalent(position: number): boolean {
+    return [PositionId.HumanTalentAssistant, PositionId.HumanTalentLead].includes(position);
   }
 }

@@ -28,14 +28,14 @@ export class ContractsController {
     description: 'Datos del contrato junto con el archivo PDF',
     schema: {
       type: 'object',
-      required: ['file', 'conditions', 'contractType', 'startDate', 'endDate', 'idEmployee', 'idManager'],
+      required: ['file', 'conditions', 'contractType', 'startDate', 'idEmployee', 'idManager'],
       properties: {
         file: { type: 'string', format: 'binary', description: 'Archivo del contrato (PDF)' },
         conditions: { type: 'string', example: 'Contrato a término fijo por 1 año' },
         contractType: { type: 'string', example: 'fixed_term_contract' },
         contractStatus: { type: 'string', example: 'valid' },
         startDate: { type: 'string', format: 'date', example: '2025-01-01' },
-        endDate: { type: 'string', format: 'date', example: '2026-01-01' },
+        endDate: { type: 'string', format: 'date', example: '2026-01-01', nullable: true },
         idEmployee: { type: 'number', example: 10 },
         idManager: { type: 'number', example: 5 },
       },

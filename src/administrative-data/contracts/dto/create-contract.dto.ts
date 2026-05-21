@@ -27,10 +27,11 @@ export class CreateContractDto {
   @IsDate()
   startDate: Date;
 
-  @ApiProperty({ example: '2026-01-01', description: 'Fecha de fin del contrato (ISO 8601)' })
+  @ApiPropertyOptional({ example: '2026-01-01', description: 'Fecha de fin del contrato (ISO 8601). Opcional para contratos a término indefinido.', nullable: true })
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  endDate: Date;
+  endDate?: Date | null;
 
   @ApiProperty({ example: 10, description: 'ID del empleado asociado al contrato' })
   @Type(() => Number)

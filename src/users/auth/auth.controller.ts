@@ -1,8 +1,9 @@
 import { Controller, Post, Body, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { NATS_SERVICE } from '@/src/config';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { LoginDto, LoginOtpDto, VerifyOtpDto } from './dto';
+import { catchError } from 'rxjs';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -15,7 +16,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login exitoso. Retorna el token de acceso.' })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas.' })
   login(@Body() loginDto: LoginDto) {
-    return this.client.send({ cmd: 'login' }, loginDto);
+    return this.client.send({ cmd: 'login' }, loginDto)
+      .pipe(catchError((err) => { throw new RpcException(err); }));
   }
 
   @Post('/login-otp')
@@ -24,7 +26,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'OTP enviado al correo indicado.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
   loginOtp(@Body() loginOtpDto: LoginOtpDto) {
-    return this.client.send({ cmd: 'loginOtp' }, loginOtpDto);
+    return this.client.send({ cmd: 'loginOtp' }, loginOtpDto)
+      .pipe(catchError((err) => { throw new RpcException(err); }));
   }
 
   @Post('/verify-otp')
@@ -33,6 +36,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'OTP válido. Retorna el token de acceso.' })
   @ApiResponse({ status: 401, description: 'OTP inválido o expirado.' })
   verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.client.send({ cmd: 'verifyOtp' }, verifyOtpDto);
+    return this.client.send({ cmd: 'verifyOtp' }, verifyOtpDto)
+      .pipe(catchError((err) => { throw new RpcException(err); }));
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Inject, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Inject, UseGuards, ForbiddenException, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { NATS_SERVICE } from '@/src/config';
 import { ClientProxy } from '@nestjs/microservices';
@@ -92,7 +92,7 @@ export class UsersController {
     @AuthUser('isAdmin') isAdmin: boolean,
   ) {
     await this.ensureEmployeeAccess(Number(id), employeeId, position, isAdmin);
-    return this.client.send({ cmd: 'findUserById' }, id);
+    return this.client.send({ cmd: 'findUserById' }, Number(id));
   }
 
   @Get('/getMyProfile/:id')
@@ -126,7 +126,7 @@ export class UsersController {
     if (!isAdmin && !this.isHumanTalent(position) && Number(id) !== employeeId) {
       throw new ForbiddenException('Insufficient employee access');
     }
-    return this.client.send({ cmd: 'getSubordinates' }, id);
+    return this.client.send({ cmd: 'getSubordinates' }, Number(id));
   }
 
   @Patch('/updateUser/:id')
@@ -146,7 +146,7 @@ export class UsersController {
     if (!isAdmin && !this.isHumanTalent(position) && Number(id) !== employeeId) {
       throw new ForbiddenException('Insufficient employee access');
     }
-    return this.client.send({ cmd: 'updateUser' }, { id, ...updateProfileDto });
+    return this.client.send({ cmd: 'updateProfile' }, { ...updateProfileDto, id_employee: Number(id) });
   }
 
   @Patch('/updateEmployee/:id')
@@ -157,8 +157,8 @@ export class UsersController {
   @ApiBody({ type: UpdateEmployeeDto })
   @ApiResponse({ status: 200, description: 'Empleado actualizado exitosamente.' })
   @ApiResponse({ status: 400, description: 'Datos inválidos.' })
-  updateEmployee(@Param('id') id: string, @Body() updateEmployeeDto: UpdateEmployeeDto) {
-    return this.client.send({ cmd: 'updateEmployee' }, { id, ...updateEmployeeDto });
+  updateEmployee(@Param('id', ParseIntPipe) id: number, @Body() updateEmployeeDto: UpdateEmployeeDto) {
+    return this.client.send({ cmd: 'updateEmployee' }, { ...updateEmployeeDto, id_employee: id });
   }
 
   @Get('/firstTimeSetup/:id')

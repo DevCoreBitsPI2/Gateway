@@ -65,7 +65,7 @@ export class AdminController {
   })
   @ApiResponse({ status: 200, description: 'Usuario bloqueado exitosamente.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  blockUser(@Param('id') id: number) {
+  blockUser(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'blockUser' }, id);
   }
 
@@ -81,7 +81,7 @@ export class AdminController {
     description: 'Usuario desbloqueado exitosamente.',
   })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  unblockUser(@Param('id') id: number) {
+  unblockUser(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'unblockUser' }, id);
   }
 
@@ -97,7 +97,7 @@ export class AdminController {
     description: 'Empleado suspendido exitosamente.',
   })
   @ApiResponse({ status: 404, description: 'Empleado no encontrado.' })
-  suspendEmployee(@Param('id') id: number) {
+  suspendEmployee(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'suspendEmployee' }, id);
   }
 
@@ -113,7 +113,7 @@ export class AdminController {
     description: 'Invitación reenviada exitosamente.',
   })
   @ApiResponse({ status: 404, description: 'Empleado no encontrado.' })
-  resendInvitation(@Param('id') id: number) {
+  resendInvitation(@Param('id', ParseIntPipe) id: number) {
     return this.client.send({ cmd: 'resendInvitation' }, id);
   }
 }

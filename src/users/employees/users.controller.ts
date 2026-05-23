@@ -1,9 +1,38 @@
-import { Controller, Get, Post, Body, Patch, Param, Inject, UseGuards, ForbiddenException, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Inject,
+  UseGuards,
+  ForbiddenException,
+  ParseIntPipe,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiBody,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { NATS_SERVICE } from '@/src/config';
-import { ClientProxy } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
-import { InviteUserDto, ScanEmployeeQrDto, UpdateProfileDto, UpdateEmployeeDto } from './dto';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { firstValueFrom, catchError } from 'rxjs';
+import {
+  InviteUserDto,
+  ScanEmployeeQrDto,
+  UpdateProfileDto,
+  UpdateEmployeeDto,
+} from './dto';
 import { AuthGuard, OptionalAuthGuard, PositionGuard } from '@/src/guards';
 import { AuthUser, Positions } from '@/src/decorators';
 import { PositionId } from '@/src/guards/enum/position-id.enum';
@@ -40,7 +69,10 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiResponse({ status: 201, description: 'QR temporal generado.' })
   @ApiResponse({ status: 401, description: 'No autenticado.' })
-  @ApiResponse({ status: 403, description: 'Sin permisos para generar este QR.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Sin permisos para generar este QR.',
+  })
   generateEmployeeQr(
     @Param('id') id: string,
     @AuthUser('employeeId') employeeId: number,
@@ -60,7 +92,10 @@ export class UsersController {
   @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: 'Escanear QR temporal de un empleado' })
   @ApiBody({ type: ScanEmployeeQrDto })
-  @ApiResponse({ status: 200, description: 'Datos visibles del empleado según permisos.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Datos visibles del empleado según permisos.',
+  })
   @ApiResponse({ status: 401, description: 'No autenticado o QR expirado.' })
   scanEmployeeQr(
     @Body() scanEmployeeQrDto: ScanEmployeeQrDto,
@@ -116,14 +151,21 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Obtener los subordinados de un gerente' })
   @ApiParam({ name: 'id', description: 'ID del gerente', example: '5' })
-  @ApiResponse({ status: 200, description: 'Lista de subordinados del gerente.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de subordinados del gerente.',
+  })
   getSubordinates(
     @Param('id') id: string,
     @AuthUser('employeeId') employeeId: number,
     @AuthUser('position') position: number,
     @AuthUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin && !this.isHumanTalent(position) && Number(id) !== employeeId) {
+    if (
+      !isAdmin &&
+      !this.isHumanTalent(position) &&
+      Number(id) !== employeeId
+    ) {
       throw new ForbiddenException('Insufficient employee access');
     }
     return this.client.send({ cmd: 'getSubordinates' }, Number(id));
@@ -143,27 +185,48 @@ export class UsersController {
     @AuthUser('position') position: number,
     @AuthUser('isAdmin') isAdmin: boolean,
   ) {
-    if (!isAdmin && !this.isHumanTalent(position) && Number(id) !== employeeId) {
+    if (
+      !isAdmin &&
+      !this.isHumanTalent(position) &&
+      Number(id) !== employeeId
+    ) {
       throw new ForbiddenException('Insufficient employee access');
     }
-    return this.client.send({ cmd: 'updateProfile' }, { ...updateProfileDto, id_employee: Number(id) });
+    return this.client.send(
+      { cmd: 'updateProfile' },
+      { ...updateProfileDto, id_employee: Number(id) },
+    );
   }
 
   @Patch('/updateEmployee/:id')
   @UseGuards(AuthGuard, PositionGuard)
   @Positions(PositionId.HumanTalentAssistant, PositionId.HumanTalentLead)
-  @ApiOperation({ summary: 'Actualizar cargo, jefe o estado de un empleado (uso administrativo)' })
+  @ApiOperation({
+    summary:
+      'Actualizar cargo, jefe o estado de un empleado (uso administrativo)',
+  })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiBody({ type: UpdateEmployeeDto })
-  @ApiResponse({ status: 200, description: 'Empleado actualizado exitosamente.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Empleado actualizado exitosamente.',
+  })
   @ApiResponse({ status: 400, description: 'Datos inválidos.' })
-  updateEmployee(@Param('id', ParseIntPipe) id: number, @Body() updateEmployeeDto: UpdateEmployeeDto) {
-    return this.client.send({ cmd: 'updateEmployee' }, { ...updateEmployeeDto, id_employee: id });
+  updateEmployee(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateEmployeeDto: UpdateEmployeeDto,
+  ) {
+    return this.client.send(
+      { cmd: 'updateEmployee' },
+      { ...updateEmployeeDto, id_employee: id },
+    );
   }
 
   @Get('/firstTimeSetup/:id')
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Verificar si el empleado necesita configuración inicial' })
+  @ApiOperation({
+    summary: 'Verificar si el empleado necesita configuración inicial',
+  })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
   @ApiResponse({ status: 200, description: 'Estado de configuración inicial.' })
   firstTimeSetup(
@@ -182,7 +245,10 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Marcar el primer login como completado' })
   @ApiParam({ name: 'id', description: 'ID del empleado', example: '10' })
-  @ApiResponse({ status: 200, description: 'Primer login marcado como completado.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Primer login marcado como completado.',
+  })
   completeFirstLogin(
     @Param('id') id: string,
     @AuthUser('supabaseUserId') supabaseUserId: string,
@@ -195,17 +261,80 @@ export class UsersController {
     return this.client.send({ cmd: 'completeFirstLogin' }, id);
   }
 
+  @Patch('/upload-profile-image')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Subir imagen de perfil del usuario autenticado' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Imagen de perfil',
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Imagen de perfil',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Imagen de perfil actualizada correctamente.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivo inválido o faltante.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autenticado.',
+  })
+  async uploadProfileImage(
+    @UploadedFile() file: Express.Multer.File,
+    @AuthUser('employeeId') employeeId: number,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    const payload = {
+      idUser: employeeId,
+      bufferBase64: file.buffer.toString('base64'),
+      mimetype: file.mimetype,
+      originalname: file.originalname,
+      fieldname: file.fieldname,
+      encoding: file.encoding,
+    };
+
+    return firstValueFrom(
+      this.client.send({ cmd: 'uploadProfileImage' }, payload).pipe(
+        catchError((err) => {
+          throw new RpcException(err);
+        }),
+      ),
+    );
+  }
+
   private async ensureEmployeeAccess(
     targetEmployeeId: number,
     requesterEmployeeId: number,
     requesterPosition: number,
     requesterIsAdmin: boolean,
   ) {
-    if (requesterIsAdmin || this.isHumanTalent(requesterPosition) || targetEmployeeId === requesterEmployeeId) {
+    if (
+      requesterIsAdmin ||
+      this.isHumanTalent(requesterPosition) ||
+      targetEmployeeId === requesterEmployeeId
+    ) {
       return;
     }
 
-    const employee = await firstValueFrom(this.client.send({ cmd: 'findUserById' }, targetEmployeeId));
+    const employee = await firstValueFrom(
+      this.client.send({ cmd: 'findUserById' }, targetEmployeeId),
+    );
 
     if (employee.id_manager !== requesterEmployeeId) {
       throw new ForbiddenException('Insufficient employee access');
@@ -213,6 +342,9 @@ export class UsersController {
   }
 
   private isHumanTalent(position: number): boolean {
-    return [PositionId.HumanTalentAssistant, PositionId.HumanTalentLead].includes(position);
+    return [
+      PositionId.HumanTalentAssistant,
+      PositionId.HumanTalentLead,
+    ].includes(position);
   }
 }
